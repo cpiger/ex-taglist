@@ -1276,14 +1276,6 @@ endfunction
 function! s:Tlist_Window_Create()
     call s:Tlist_Log_Msg('Tlist_Window_Create()')
 
-    " jwu ADD { 
-    let winnr = winnr()
-    if ex#window#check_if_autoclose(winnr)
-        call ex#window#close(winnr)
-    endif
-    call ex#window#goto_edit_window()
-    " } jwu ADD end 
-
     " If the window is open, jump to it
     let winnum = bufwinnr(g:TagList_title)
     if winnum != -1
@@ -1453,6 +1445,14 @@ function! s:Tlist_Window_Exit_Only_Window()
 endfunction
 
 " Tlist_Window_Init
+
+" jwu ADD
+function s:on_close()
+    " go back to edit buffer
+    call ex#window#goto_edit_window()
+    call ex#hl#clear_target()
+endfunction
+
 " Set the default options for the taglist window
 function! s:Tlist_Window_Init()
     call s:Tlist_Log_Msg('Tlist_Window_Init()')
@@ -1466,6 +1466,7 @@ function! s:Tlist_Window_Init()
     " Set the taglist buffer filetype to taglist
     setlocal filetype=taglist
     setlocal cursorline
+    au! BufWinLeave <buffer> call <SID>on_close() " jwu ADD
 
     " Define taglist window element highlighting
     syntax match TagListComment '^" .*'
@@ -2562,6 +2563,15 @@ endfunction
 " Open and refresh the taglist window
 function! s:Tlist_Window_Open()
     call s:Tlist_Log_Msg('Tlist_Window_Open()')
+
+    " jwu ADD { 
+    let winnr = winnr()
+    if ex#window#check_if_autoclose(winnr)
+        call ex#window#close(winnr)
+    endif
+    call ex#window#goto_edit_window()
+    " } jwu ADD end 
+
     " If the window is open, jump to it
     let winnum = bufwinnr(g:TagList_title)
     if winnum != -1
