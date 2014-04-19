@@ -162,6 +162,18 @@ if !exists('loaded_taglist')
         let Tlist_WinHeight = 10
     endif
 
+    " JWU ADD { 
+    " Window increase size
+    if !exists('Tlist_WinIncreament')
+        let Tlist_WinIncreament = 40
+    endif
+
+    " Back to edit buffer
+    if !exists('Tlist_BackToEditBuffer')
+        let Tlist_BackToEditBuffer = 0
+    endif
+    " } JWU ADD end 
+
     " Display tag prototypes or tag names in the taglist window
     if !exists('Tlist_Display_Prototype')
         let Tlist_Display_Prototype = 0
@@ -1263,6 +1275,15 @@ endfunction
 " Create a new taglist window. If it is already open, jump to it
 function! s:Tlist_Window_Create()
     call s:Tlist_Log_Msg('Tlist_Window_Create()')
+
+    " jwu ADD { 
+    let winnr = winnr()
+    if ex#window#check_if_autoclose(winnr)
+        call ex#window#close(winnr)
+    endif
+    call ex#window#goto_edit_window()
+    " } jwu ADD end 
+
     " If the window is open, jump to it
     let winnum = bufwinnr(g:TagList_title)
     if winnum != -1
@@ -1341,23 +1362,21 @@ endfunction
 " Tlist_Window_Zoom
 " Zoom (maximize/minimize) the taglist window
 function! s:Tlist_Window_Zoom()
-    if s:tlist_win_maximized
-        " Restore the window back to the previous size
+    "
         if g:Tlist_Use_Horiz_Window
-            exe 'resize ' . g:Tlist_WinHeight
+        if winheight('.') <= g:Tlist_WinHeight
+            let new_size = g:Tlist_WinHeight + g:Tlist_WinIncreament
         else
-            exe 'vert resize ' . g:Tlist_WinWidth
+            let new_size = g:Tlist_WinHeight
         endif
-        let s:tlist_win_maximized = 0
+        exe 'resize ' . new_size
     else
-        " Set the window size to the maximum possible without closing other
-        " windows
-        if g:Tlist_Use_Horiz_Window
-            resize
+        if winwidth('.') <= g:Tlist_WinWidth
+            let new_size = g:Tlist_WinWidth + g:Tlist_WinIncreament
         else
-            vert resize
+            let new_size = g:Tlist_WinWidth
         endif
-        let s:tlist_win_maximized = 1
+        exe 'vert resize ' . new_size
     endif
 endfunction
 
@@ -1446,6 +1465,7 @@ function! s:Tlist_Window_Init()
 
     " Set the taglist buffer filetype to taglist
     setlocal filetype=taglist
+    setlocal cursorline
 
     " Define taglist window element highlighting
     syntax match TagListComment '^" .*'
@@ -1573,10 +1593,19 @@ function! s:Tlist_Window_Init()
     nnoremap <buffer> <silent> <kPlus> :silent! foldopen<CR>
     nnoremap <buffer> <silent> <kMinus> :silent! foldclose<CR>
     nnoremap <buffer> <silent> <kMultiply> :silent! %foldopen!<CR>
-    nnoremap <buffer> <silent> <Space> :call <SID>Tlist_Window_Show_Info()<CR>
+
+    " jwu MODIFY hot-key to x
+    " nnoremap <buffer> <silent> <Space> :call <SID>Tlist_Window_Show_Info()<CR>
+    nnoremap <buffer> <silent> x :call <SID>Tlist_Window_Show_Info()<CR>
+
     nnoremap <buffer> <silent> u :call <SID>Tlist_Window_Update_File()<CR>
     nnoremap <buffer> <silent> d :call <SID>Tlist_Remove_File(-1, 1)<CR>
-    nnoremap <buffer> <silent> x :call <SID>Tlist_Window_Zoom()<CR>
+
+    " jwu MODIFY&ADD hot-key to space
+    " nnoremap <buffer> <silent> x :call <SID>Tlist_Window_Zoom()<CR>
+    nnoremap <buffer> <silent> <Space> :call <SID>Tlist_Window_Zoom()<CR>
+    nnoremap <buffer> <silent> <Esc> :call <SID>Tlist_Window_Close()<CR>
+
     nnoremap <buffer> <silent> [[ :call <SID>Tlist_Window_Move_To_File(-1)<CR>
     nnoremap <buffer> <silent> <BS> :call <SID>Tlist_Window_Move_To_File(-1)<CR>
     nnoremap <buffer> <silent> ]] :call <SID>Tlist_Window_Move_To_File(1)<CR>
@@ -2509,33 +2538,14 @@ endfunction
 " Close the taglist window
 function! s:Tlist_Window_Close()
     call s:Tlist_Log_Msg('Tlist_Window_Close()')
-    " Make sure the taglist window exists
-    let winnum = bufwinnr(g:TagList_title)
-    if winnum == -1
-        call s:Tlist_Warning_Msg('Error: Taglist window is not open')
-        return
-    endif
 
-    if winnr() == winnum
-        " Already in the taglist window. Close it and return
-        if winbufnr(2) != -1
-            " If a window other than the taglist window is open,
-            " then only close the taglist window.
-            close
-        endif
-    else
-        " Goto the taglist window, close it and then come back to the
-        " original window
-        let curbufnr = bufnr('%')
-        exe winnum . 'wincmd w'
-        close
-        " Need to jump back to the original window only if we are not
-        " already in that window
-        let winnum = bufwinnr(curbufnr)
-        if winnr() != winnum
-            exe winnum . 'wincmd w'
-        endif
+    " jwu MODIFY
+    let winnr = bufwinnr(g:TagList_title)
+    if winnr != -1
+        call ex#window#close(winnr)
+        return 1
     endif
+    return 0
 endfunction
 
 " Tlist_Window_Mark_File_Window
@@ -3346,6 +3356,18 @@ function! s:Tlist_Window_Jump_To_Tag(win_ctrl)
     endif
 
     call s:Tlist_Window_Open_File(a:win_ctrl, s:tlist_{fidx}_filename, tagpat)
+
+    " JWU ADD to stick in the taglist window
+    " hilight the object line
+    call ex#hl#target_line(line('.'))
+
+    " back to edit buffer
+    if !g:Tlist_Close_On_Select
+        if !g:Tlist_BackToEditBuffer
+            call ex#window#goto_plugin_window()
+            return 1
+        endif
+    endif
 endfunction
 
 " Tlist_Window_Show_Info()
