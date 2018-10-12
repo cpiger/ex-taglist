@@ -541,17 +541,17 @@ function! s:Tlist_Window_Display_Help()
 
     if s:tlist_brief_help
         " Add the brief help
-        call append(0, '" Press <F1> to display help text')
+        call append(0, '" Press ? to display help text')
     else
         " Add the extensive help
         call append(0, '" <enter> : Jump to tag definition')
         call append(1, '" o : Jump to tag definition in new window')
         call append(2, '" p : Preview the tag definition')
-        call append(3, '" <space> : Display tag prototype')
+        call append(3, '" z : Display tag prototype')
         call append(4, '" u : Update tag list')
         call append(5, '" s : Select sort field')
         call append(6, '" d : Remove file from taglist')
-        call append(7, '" x : Zoom-out/Zoom-in taglist window')
+        call append(7, '" z : Zoom-out/Zoom-in taglist window')
         call append(8, '" + : Open a fold')
         call append(9, '" - : Close a fold')
         call append(10, '" * : Open all folds')
@@ -559,7 +559,39 @@ function! s:Tlist_Window_Display_Help()
         call append(12, '" [[ : Move to the start of previous file')
         call append(13, '" ]] : Move to the start of next file')
         call append(14, '" q : Close the taglist window')
-        call append(15, '" <F1> : Remove help text')
+        call append(15, '" ? : Remove help text')
+    endif
+endfunction
+
+function! s:Tlist_Window_Display_Help_Force()
+    if s:tlist_app_name == "winmanager"
+        " To handle a bug in the winmanager plugin, add a space at the
+        " last line
+        call setline('$', ' ')
+    endif
+
+    if s:tlist_brief_help
+        " Add the brief help
+        " Dont display this line for more compact
+        " call append(0, '" Press ? to display help text')
+    else
+        " Add the extensive help
+        call append(0, '" <enter> : Jump to tag definition')
+        call append(1, '" o : Jump to tag definition in new window')
+        call append(2, '" p : Preview the tag definition')
+        call append(3, '" z : Display tag prototype')
+        call append(4, '" u : Update tag list')
+        call append(5, '" s : Select sort field')
+        call append(6, '" d : Remove file from taglist')
+        call append(7, '" z : Zoom-out/Zoom-in taglist window')
+        call append(8, '" + : Open a fold')
+        call append(9, '" - : Close a fold')
+        call append(10, '" * : Open all folds')
+        call append(11, '" = : Close all folds')
+        call append(12, '" [[ : Move to the start of previous file')
+        call append(13, '" ]] : Move to the start of next file')
+        call append(14, '" q : Close the taglist window')
+        call append(15, '" ? : Remove help text')
     endif
 endfunction
 
@@ -607,6 +639,54 @@ function! s:Tlist_Window_Toggle_Help_Text()
     endif
 
     call s:Tlist_Window_Display_Help()
+
+    " Restore the report option
+    let &report = old_report
+
+    setlocal nomodifiable
+endfunction
+
+function! s:Tlist_Window_Toggle_Help_Text_Force()
+    " if g:Tlist_Compact_Format
+        " In compact display mode, do not display help
+        " return
+    " endif
+
+    " Include the empty line displayed after the help text
+    let brief_help_size = 1
+    let full_help_size = 16
+
+    setlocal modifiable
+
+    " Set report option to a huge value to prevent informational messages
+    " while deleting the lines
+    let old_report = &report
+    set report=99999
+
+    " Remove the currently highlighted tag. Otherwise, the help text
+    " might be highlighted by mistake
+    match none
+
+    " Toggle between brief and full help text
+    if s:tlist_brief_help
+        let s:tlist_brief_help = 0
+
+        " Remove the previous help
+        exe '1,' . brief_help_size . ' delete _'
+
+        " Adjust the start/end line numbers for the files
+        call s:Tlist_Window_Update_Line_Offsets(0, 1, full_help_size - brief_help_size)
+    else
+        let s:tlist_brief_help = 1
+
+        " Remove the previous help
+        exe '1,' . full_help_size . ' delete _'
+
+        " Adjust the start/end line numbers for the files
+        call s:Tlist_Window_Update_Line_Offsets(0, 0, full_help_size - brief_help_size)
+    endif
+
+    call s:Tlist_Window_Display_Help_Force()
 
     " Restore the report option
     let &report = old_report
@@ -1604,7 +1684,8 @@ function! s:Tlist_Window_Init()
 
     " jwu MODIFY&ADD hot-key to space
     " nnoremap <buffer> <silent> x :call <SID>Tlist_Window_Zoom()<CR>
-    nnoremap <buffer> <silent> <Space> :call <SID>Tlist_Window_Zoom()<CR>
+    " nnoremap <buffer> <silent> <Space> :call <SID>Tlist_Window_Zoom()<CR>
+    nnoremap <buffer> <silent> z :call <SID>Tlist_Window_Zoom()<CR>
     if has('gui_running')
         nnoremap <buffer> <silent> <Esc> :call <SID>Tlist_Window_Close()<CR>
     else
@@ -1615,7 +1696,7 @@ function! s:Tlist_Window_Init()
     nnoremap <buffer> <silent> <BS> :call <SID>Tlist_Window_Move_To_File(-1)<CR>
     nnoremap <buffer> <silent> ]] :call <SID>Tlist_Window_Move_To_File(1)<CR>
     nnoremap <buffer> <silent> <Tab> :call <SID>Tlist_Window_Move_To_File(1)<CR>
-    nnoremap <buffer> <silent> <F1> :call <SID>Tlist_Window_Toggle_Help_Text()<CR>
+    nnoremap <buffer> <silent> ? :call <SID>Tlist_Window_Toggle_Help_Text_Force()<CR>
     nnoremap <buffer> <silent> q :close<CR>
 
     " Insert mode mappings
@@ -1647,7 +1728,7 @@ function! s:Tlist_Window_Init()
     inoremap <buffer> <silent> <kPlus>       <C-o>:silent! foldopen<CR>
     inoremap <buffer> <silent> <kMinus>      <C-o>:silent! foldclose<CR>
     inoremap <buffer> <silent> <kMultiply>   <C-o>:silent! %foldopen!<CR>
-    inoremap <buffer> <silent> <Space>       <C-o>:call
+    inoremap <buffer> <silent> x       <C-o>:call
                                     \ <SID>Tlist_Window_Show_Info()<CR>
     inoremap <buffer> <silent> u
                             \ <C-o>:call <SID>Tlist_Window_Update_File()<CR>
@@ -1657,7 +1738,7 @@ function! s:Tlist_Window_Init()
     inoremap <buffer> <silent> <BS> <C-o>:call <SID>Tlist_Window_Move_To_File(-1)<CR>
     inoremap <buffer> <silent> ]]   <C-o>:call <SID>Tlist_Window_Move_To_File(1)<CR>
     inoremap <buffer> <silent> <Tab> <C-o>:call <SID>Tlist_Window_Move_To_File(1)<CR>
-    inoremap <buffer> <silent> <F1>  <C-o>:call <SID>Tlist_Window_Toggle_Help_Text()<CR>
+    inoremap <buffer> <silent> ?  <C-o>:call <SID>Tlist_Window_Toggle_Help_Text_Force()<CR>
     inoremap <buffer> <silent> q    <C-o>:close<CR>
 
     " Map single left mouse click if the user wants this functionality
