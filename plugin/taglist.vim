@@ -2401,7 +2401,12 @@ function! s:Tlist_Process_File(filename, ftype)
     call s:Tlist_Log_Msg('Cmd: ' . ctags_cmd)
 
     " Run ctags and get the tag list
-    let cmd_output = system(ctags_cmd)
+    if TagList_has_vimproc()
+        let ctags_cmd = substitute(ctags_cmd, '\\', '/', 'g')
+        let cmd_output = vimproc#system(ctags_cmd)
+    else
+        let cmd_output = system(ctags_cmd)
+    endif
 
     " Restore the value of the 'shellslash' option.
     if has('win95') && !has('win32unix')
@@ -4656,6 +4661,18 @@ endfunction
 function! TagList_WrapUp()
     return 0
 endfunction
+
+function! TagList_has_vimproc()
+  if !exists('s:exists_vimproc')
+    try
+      silent call vimproc#version()
+      let s:exists_vimproc = 1
+    catch
+      let s:exists_vimproc = 0
+    endtry
+  endif
+  return s:exists_vimproc
+endfunction "}}}
 
 " restore 'cpo'
 let &cpo = s:cpo_save
